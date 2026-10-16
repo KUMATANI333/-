@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>都道府県別 社会保険料計算ツール</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Noto Sans JP', sans-serif; }
+  </style>
+</head>
+<body class="bg-slate-50 min-h-screen text-slate-800 pb-12">
+  <div class="max-w-2xl mx-auto px-4 py-8">
+    <!-- ヘッダー -->
+    <div class="bg-indigo-900 text-white rounded-2xl p-6 shadow-lg mb-6">
+      <h1 class="text-xl sm:text-2xl font-bold text-center">都道府県別 社会保険料計算ツール</h1>
+      <p class="text-xs sm:text-sm text-indigo-200 text-center mt-2">給与と都道府県を選択するだけで、折半額・手取り目安をすぐ確認</p>
+    </div>
+
+    <!-- 入力フォーム -->
+    <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 mb-6 space-y-5">
+      <h2 class="font-bold text-indigo-900 border-b pb-2 text-base">1. 条件入力</h2>
+      
+      <!-- 都道府県 -->
+      <div>
+        <label class="block text-sm font-medium text-slate-700 mb-1">都道府県</label>
+        <select id="prefecture" onchange="calculate()" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+          <!-- JSで自動生成 -->
+        </select>
+      </div>
+
+      <!-- 額面月給 -->
+      <div>
+        <label class="block text-sm font-medium text-slate-700 mb-1">額面月給（総支給額）</label>
+        <div class="relative">
+          <input type="number" id="salary" value="300000" step="10000" min="0" oninput="calculate()" class="w-full bg-slate-50 border border-slate-300 rounded-lg pl-3 pr-8 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 font-bold">
+          <span class="absolute right-3 top-2.5 text-sm text-slate-500">円</span>
+        </div>
+        <p class="text-xs text-slate-400 mt-1">※基本給 ＋ 各種手当（残業代・通勤手当など含む）</p>
+      </div>
+
+      <!-- 介護保険区分 -->
+      <div>
+        <label class="block text-sm font-medium text-slate-700 mb-1">介護保険の対象</label>
+        <select id="kaigo" onchange="calculate()" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+          <option value="target">対象（40歳〜64歳）</option>
+          <option value="untarget" selected>対象外（40歳未満 / 65歳以上）</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- 試算結果 -->
+    <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 space-y-6">
+      <h2 class="font-bold text-indigo-900 border-b pb-2 text-base">2. 試算結果（月額）</h2>
+
+      <!-- 手取り目安カード -->
+      <div class="bg-indigo-50 rounded-xl p-4 border border-indigo-100 flex justify-between items-center">
+        <div>
+          <span class="text-xs text-indigo-700 font-medium block">社会保険料控除後の額面</span>
+          <span class="text-xs text-slate-500">（ここから所得税・住民税が引かれます）</span>
+        </div>
+        <div class="text-right">
+          <span id="take-home" class="text-xl sm:text-2xl font-bold text-indigo-900">¥0</span>
+        </div>
+      </div>
+
+      <!-- 控除内訳テーブル -->
+      <div>
+        <div class="text-xs font-medium text-slate-500 mb-2">【毎月の引き落とし額（本人負担分）】</div>
+        <div class="space-y-2">
+          <div class="flex justify-between items-center py-2 border-b border-slate-100 text-sm">
+            <span class="text-slate-600">健康保険料 <span id="health-rate" class="text-xs text-slate-400"></span></span>
+            <span id="health-fee" class="font-bold text-slate-800">¥0</span>
+          </div>
+          <div class="flex justify-between items-center py-2 border-b border-slate-100 text-sm">
+            <span class="text-slate-600">介護保険料 <span id="kaigo-rate" class="text-xs text-slate-400"></span></span>
+            <span id="kaigo-fee" class="font-bold text-slate-800">¥0</span>
+          </div>
+          <div class="flex justify-between items-center py-2 border-b border-slate-100 text-sm">
+            <span class="text-slate-600">厚生年金保険料 <span class="text-xs text-slate-400">(9.15%)</span></span>
+            <span id="pension-fee" class="font-bold text-slate-800">¥0</span>
+          </div>
+          <div class="flex justify-between items-center py-3 bg-slate-100 px-3 rounded-lg text-sm font-bold mt-3">
+            <span class="text-slate-700">社会保険料 合計（本人負担）</span>
+            <span id="total-fee" class="text-red-600 text-base">¥0</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 補足情報 -->
+      <div class="bg-slate-50 rounded-lg p-3 text-xs text-slate-500 space-y-1">
+        <div class="flex justify-between">
+          <span>適用標準報酬月額:</span>
+          <span id="standard-monthly" class="font-medium text-slate-700">¥0</span>
+        </div>
+        <div class="flex justify-between">
+          <span>会社負担分（折半同額）:</span>
+          <span id="company-fee" class="font-medium text-slate-700">¥0</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // 都道府県別健康保険料率（令和6年〜概算データ例）
+    const prefRates = {
+      "北海道": 0.1021, "青森県": 0.0998, "岩手県": 0.0970, "宮城県": 0.0988,
+      "秋田県": 0.0995, "山形県": 0.0972, "福島県": 0.0982, "茨城県": 0.0978,
+      "栃木県": 0.0986, "群馬県": 0.0980, "埼玉県": 0.0978, "千葉県": 0.0977,
+      "東京都": 0.0998, "神奈川県": 0.1002, "新潟県": 0.0963, "富山県": 0.0962,
+      "石川県": 0.0981, "福井県": 0.0983, "山梨県": 0.0979, "長野県": 0.0961,
+      "岐阜県": 0.0990, "静岡県": 0.0968, "愛知県": 0.0987, "三重県": 0.0988,
+      "滋賀県": 0.0989, "京都府": 0.1009, "大阪府": 0.1028, "兵庫県": 0.1018,
+      "奈良県": 0.1015, "和歌山県": 0.1009, "鳥取県": 0.0992, "島根県": 0.0986,
+      "岡山県": 0.1001, "広島県": 0.1003, "山口県": 0.1010, "徳島県": 0.1024,
+      "香川県": 0.1014, "愛媛県": 0.1005, "高知県": 0.1021, "福岡県": 0.1025,
+      "佐賀県": 0.1042, "長崎県": 0.1023, "熊本県": 0.1018, "大分県": 0.1015,
+      "宮崎県": 0.1008, "鹿児島県": 0.1022, "沖縄県": 0.1004
+    };
+
+    const KAIGO_RATE = 0.0160;
+    const PENSION_RATE = 0.1830;
+
+    // 標準報酬月額判定テーブル
+    const grades = [
+      { max: 63000, std: 58000 }, { max: 73000, std: 68000 }, { max: 83000, std: 78000 },
+      { max: 93000, std: 88000 }, { max: 101000, std: 98000 }, { max: 107000, std: 104000 },
+      { max: 115000, std: 110000 }, { max: 123500, std: 118000 }, { max: 133000, std: 126000 },
+      { max: 143000, std: 134000 }, { max: 155000, std: 150000 }, { max: 165000, std: 160000 },
+      { max: 175000, std: 170000 }, { max: 185000, std: 180000 }, { max: 195000, std: 190000 },
+      { max: 210000, std: 200000 }, { max: 230000, std: 220000 }, { max: 250000, std: 240000 },
+      { max: 250000, std: 260000 }, { max: 290000, std: 280000 }, { max: 310000, std: 300000 },
+      { max: 330000, std: 320000 }, { max: 350000, std: 340000 }, { max: 370000, std: 360000 },
+      { max: 395000, std: 380000 }, { max: 425000, std: 410000 }, { max: 455000, std: 440000 },
+      { max: 485000, std: 470000 }, { max: 515000, std: 500000 }, { max: 545000, std: 530000 },
+      { max: 575000, std: 560000 }, { max: 605000, std: 590000 }, { max: 635000, std: 620000 },
+      { max: 665000, std: 650000 }, { max: 695000, std: 680000 }, { max: Infinity, std: 710000 }
+    ];
+
+    // 初期化
+    window.onload = function() {
+      const prefSelect = document.getElementById('prefecture');
+      Object.keys(prefRates).forEach(pref => {
+        const option = document.createElement('option');
+        option.value = pref;
+        option.textContent = pref;
+        if(pref === '埼玉県') option.selected = true;
+        prefSelect.appendChild(option);
+      });
+      calculate();
+    };
+
+    function getStandardMonthly(salary) {
+      if (salary <= 0) return 0;
+      for (let g of grades) {
+        if (salary < g.max) return g.std;
+      }
+      return 710000;
+    }
+
+    function calculate() {
+      const salary = parseFloat(document.getElementById('salary').value) || 0;
+      const pref = document.getElementById('prefecture').value;
+      const isKaigo = document.getElementById('kaigo').value === 'target';
+
+      const stdMonthly = getStandardMonthly(salary);
+      const healthRateTotal = prefRates[pref] || 0.10;
+      const healthRateHalf = healthRateTotal / 2;
+      const kaigoRateHalf = isKaigo ? (KAIGO_RATE / 2) : 0;
+      const pensionRateHalf = PENSION_RATE / 2;
+
+      // 保険料計算（折半・四捨五入）
+      const healthFee = Math.round(stdMonthly * healthRateHalf);
+      const kaigoFee = Math.round(stdMonthly * kaigoRateHalf);
+      const pensionFee = Math.round(stdMonthly * pensionRateHalf);
+      const totalFee = healthFee + kaigoFee + pensionFee;
+      const takeHome = Math.max(0, salary - totalFee);
+
+      // 画面更新
+      document.getElementById('standard-monthly').textContent = '¥' + stdMonthly.toLocaleString();
+      document.getElementById('health-rate').textContent = `(${(healthRateHalf * 100).toFixed(2)}%)`;
+      document.getElementById('kaigo-rate').textContent = isKaigo ? `(${(kaigoRateHalf * 100).toFixed(2)}%)` : '(対象外)';
+      
+      document.getElementById('health-fee').textContent = '¥' + healthFee.toLocaleString();
+      document.getElementById('kaigo-fee').textContent = '¥' + kaigoFee.toLocaleString();
+      document.getElementById('pension-fee').textContent = '¥' + pensionFee.toLocaleString();
+      document.getElementById('total-fee').textContent = '¥' + totalFee.toLocaleString();
+      document.getElementById('company-fee').textContent = '¥' + totalFee.toLocaleString();
+      document.getElementById('take-home').textContent = '¥' + takeHome.toLocaleString();
+    }
+  </script>
+</body>
+</html>
